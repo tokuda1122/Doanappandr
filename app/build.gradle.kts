@@ -15,14 +15,21 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-
+    buildFeatures {
+        buildConfig = true
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
+
             )
+            buildConfigField ("String", "WEATHER_API_KEY", "\"868297bbde73dd9b88c575df930e358e\"")
+        }
+        debug {
+            buildConfigField ("String", "WEATHER_API_KEY", "\"868297bbde73dd9b88c575df930e358e\"")
         }
     }
     compileOptions {
