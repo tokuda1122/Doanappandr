@@ -3,11 +3,12 @@
     <string name="app_name">Weather App</string>
     <string name="hint_city">Enter city...</string>
     <string name="button_search">Search</string>
-    <string name="today">Today</string>
+    <string name="today">Hôm nay</string>
     <string name="error_location_permission">Location permission denied</string>
     <string name="error_empty_city">Please enter a city name</string>
     <string name="error_location_unavailable">Unable to get current location</string>
     <string name="error_weather_fetch">Failed to fetch weather data</string>
     <string name="error_forecast_fetch">Failed to fetch forecast data</string>
     <string name="error_network">Network error: %s</string>
+
 </resources>

@@ -1,9 +1,12 @@
 package com.example.doanapp2;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -81,6 +84,24 @@ public class HomeFragment extends Fragment {
         weatherTranslations.put("shower snow", "Tuyết rào");
         weatherTranslations.put("heavy shower snow", "Tuyết rào mạnh");
 
+
+
+        // Trong onCreateView của HomeFragment.java, sau khi khởi tạo inputCity
+        inputCity.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
+                    (event != null && event.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER && event.getAction() == android.view.KeyEvent.ACTION_DOWN)) {
+                String city = inputCity.getText().toString().trim();
+                if (!city.isEmpty()) {
+                    fetchWeatherDataByCity(city);
+                    hideKeyboard(v);
+                } else {
+                    Toast.makeText(getContext(), R.string.error_empty_city, Toast.LENGTH_SHORT).show();
+                }
+                return true;
+            }
+            return false;
+        });
+
         // Thiết lập RecyclerView
         hourlyForecastRecyclerView.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
         hourlyForecastAdapter = new HourlyForecastAdapter(new ArrayList<>());
@@ -98,15 +119,34 @@ public class HomeFragment extends Fragment {
             String city = inputCity.getText().toString().trim();
             if (!city.isEmpty()) {
                 fetchWeatherDataByCity(city);
+                hideKeyboard(view); // Ẩn bàn phím sau khi tìm kiếm
             } else {
                 Toast.makeText(getContext(), R.string.error_empty_city, Toast.LENGTH_SHORT).show();
             }
+        });
+
+        // Thêm touch listener để ẩn bàn phím khi chạm bên ngoài
+        view.setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                hideKeyboard(v);
+            }
+            return false; // Trả về false để không ngăn các sự kiện chạm khác
         });
 
         // Tải thời tiết mặc định
         fetchWeatherDataByCity("Lào Cai");
 
         return view;
+    }
+
+    // Phương thức để ẩn bàn phím
+    private void hideKeyboard(View view) {
+        InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+        }
+        // Xóa focus khỏi EditText
+        inputCity.clearFocus();
     }
 
     public void fetchWeatherDataByLocation(double lat, double lon) {
