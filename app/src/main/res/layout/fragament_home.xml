@@ -94,7 +94,7 @@
 
         <!-- Biểu tượng thời tiết -->
         <ImageView
-            android:id="@+id/weatherIcon"
+            android:id="@+id/imageWeatherIcon"
             android:layout_width="120dp"
             android:layout_height="120dp"
             android:layout_gravity="center"

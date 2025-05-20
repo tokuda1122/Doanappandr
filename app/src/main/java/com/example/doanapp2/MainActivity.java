@@ -17,7 +17,7 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements OnCitySelectedListener {
 
     private FusedLocationProviderClient fusedLocationClient;
     private ActivityResultLauncher<String[]> requestMultiplePermissionsLauncher;
@@ -58,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
                 getCurrentLocation();
             } else {
                 Toast.makeText(this, R.string.error_location_permission, Toast.LENGTH_SHORT).show();
+                loadFragmentWithCity(new HomeFragment(), "Lào Cai");
             }
         });
 
@@ -74,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Tải fragment Trang chủ mặc định
         if (savedInstanceState == null) {
-            loadFragment(new HomeFragment());
+            loadFragmentWithCity(new HomeFragment(), "Lào Cai");
             bottomNavigationView.setSelectedItemId(R.id.nav_home);
         }
     }
@@ -87,25 +88,57 @@ public class MainActivity extends AppCompatActivity {
                         if (location != null) {
                             double latitude = location.getLatitude();
                             double longitude = location.getLongitude();
-                            // Truyền vị trí tới HomeFragment nếu cần
-                            HomeFragment homeFragment = (HomeFragment) getSupportFragmentManager().findFragmentById(R.id.fragmentContainer);
-                            if (homeFragment != null) {
-                                homeFragment.fetchWeatherDataByLocation(latitude, longitude);
-                            }
+                            // Truyền tọa độ tới HomeFragment
+                            HomeFragment homeFragment = new HomeFragment();
+                            Bundle bundle = new Bundle();
+                            bundle.putDouble("latitude", latitude);
+                            bundle.putDouble("longitude", longitude);
+                            homeFragment.setArguments(bundle);
+                            loadFragment(homeFragment);
                         } else {
                             Toast.makeText(this, R.string.error_location_unavailable, Toast.LENGTH_SHORT).show();
+                            loadFragmentWithCity(new HomeFragment(), "Lào Cai");
                         }
                     })
                     .addOnFailureListener(this, e -> {
                         Toast.makeText(this, R.string.error_location_unavailable, Toast.LENGTH_SHORT).show();
+                        loadFragmentWithCity(new HomeFragment(), "Lào Cai");
                     });
         }
     }
 
     private void loadFragment(Fragment fragment) {
+        if (fragment instanceof HomeFragment) {
+            ((HomeFragment) fragment).setCitySelectedListener(this);
+        }
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(R.id.fragmentContainer, fragment);
         transaction.addToBackStack(null);
         transaction.commit();
+    }
+
+    private void loadFragmentWithCity(Fragment fragment, String city) {
+        Bundle bundle = new Bundle();
+        bundle.putString("city", city);
+        fragment.setArguments(bundle);
+        if (fragment instanceof HomeFragment) {
+            ((HomeFragment) fragment).setCitySelectedListener(this);
+        }
+        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+        transaction.replace(R.id.fragmentContainer, fragment);
+        transaction.addToBackStack(null);
+        transaction.commit();
+    }
+
+    @Override
+    public void onCitySelected(String city) {
+        // Cập nhật các Fragment khác với thành phố được chọn
+        Bundle bundle = new Bundle();
+        bundle.putString("city", city);
+        DetailsFragment detailsFragment = new DetailsFragment();
+        ForecastFragment forecastFragment = new ForecastFragment();
+        detailsFragment.setArguments(bundle);
+        forecastFragment.setArguments(bundle);
+        // Có thể lưu thành phố vào SharedPreferences nếu cần
     }
 }

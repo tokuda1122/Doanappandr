@@ -1,12 +1,10 @@
 package com.example.doanapp2;
 
-import android.content.Context;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -33,6 +31,8 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
+import retrofit2.http.GET;
+import retrofit2.http.Query;
 
 public class HomeFragment extends Fragment {
 
@@ -43,21 +43,13 @@ public class HomeFragment extends Fragment {
     private HourlyForecastAdapter hourlyForecastAdapter;
     private OpenWeatherMapApi weatherApi;
     private Map<String, String> weatherTranslations;
+    private OnCitySelectedListener citySelectedListener;
 
-    @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragament_home, container, false);
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-        // Khởi tạo UI
-        inputCity = view.findViewById(R.id.inputCity);
-        textCityName = view.findViewById(R.id.textCityName);
-        textTemperature = view.findViewById(R.id.textTemperature);
-        textWeatherDescription = view.findViewById(R.id.textWeatherDescription);
-        weatherIcon = view.findViewById(R.id.weatherIcon);
-        hourlyForecastRecyclerView = view.findViewById(R.id.hourlyForecastRecyclerView);
-
-        // Khởi tạo translations
+        // Khởi tạo bảng dịch mô tả thời tiết
         weatherTranslations = new HashMap<>();
         weatherTranslations.put("clear sky", "Trời quang");
         weatherTranslations.put("few clouds", "Ít mây");
@@ -84,175 +76,202 @@ public class HomeFragment extends Fragment {
         weatherTranslations.put("shower snow", "Tuyết rào");
         weatherTranslations.put("heavy shower snow", "Tuyết rào mạnh");
 
-
-
-        // Trong onCreateView của HomeFragment.java, sau khi khởi tạo inputCity
-        inputCity.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
-                    (event != null && event.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER && event.getAction() == android.view.KeyEvent.ACTION_DOWN)) {
-                String city = inputCity.getText().toString().trim();
-                if (!city.isEmpty()) {
-                    fetchWeatherDataByCity(city);
-                    hideKeyboard(v);
-                } else {
-                    Toast.makeText(getContext(), R.string.error_empty_city, Toast.LENGTH_SHORT).show();
-                }
-                return true;
-            }
-            return false;
-        });
-
-        // Thiết lập RecyclerView
-        hourlyForecastRecyclerView.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
-        hourlyForecastAdapter = new HourlyForecastAdapter(new ArrayList<>());
-        hourlyForecastRecyclerView.setAdapter(hourlyForecastAdapter);
-
         // Khởi tạo Retrofit
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("https://api.openweathermap.org/data/2.5/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         weatherApi = retrofit.create(OpenWeatherMapApi.class);
+    }
 
-        // Xử lý nút tìm kiếm
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.fragament_home, container, false);
+
+        // Khởi tạo các thành phần giao diện
+        inputCity = view.findViewById(R.id.inputCity);
+        textCityName = view.findViewById(R.id.textCityName);
+        textTemperature = view.findViewById(R.id.textTemperature);
+        textWeatherDescription = view.findViewById(R.id.textWeatherDescription);
+        weatherIcon = view.findViewById(R.id.imageWeatherIcon);
+        hourlyForecastRecyclerView = view.findViewById(R.id.hourlyForecastRecyclerView);
+
+        // Thiết lập RecyclerView
+        hourlyForecastRecyclerView.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
+        hourlyForecastAdapter = new HourlyForecastAdapter(new ArrayList<>());
+        hourlyForecastRecyclerView.setAdapter(hourlyForecastAdapter);
+
+        // Xử lý sự kiện nút tìm kiếm
         view.findViewById(R.id.buttonSearch).setOnClickListener(v -> {
             String city = inputCity.getText().toString().trim();
             if (!city.isEmpty()) {
                 fetchWeatherDataByCity(city);
-                hideKeyboard(view); // Ẩn bàn phím sau khi tìm kiếm
+                // Thông báo cho các Fragment khác
+                if (citySelectedListener != null) {
+                    citySelectedListener.onCitySelected(city);
+                }
             } else {
                 Toast.makeText(getContext(), R.string.error_empty_city, Toast.LENGTH_SHORT).show();
             }
         });
 
-        // Thêm touch listener để ẩn bàn phím khi chạm bên ngoài
-        view.setOnTouchListener((v, event) -> {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                hideKeyboard(v);
+        // Kiểm tra dữ liệu từ Bundle
+        Bundle bundle = getArguments();
+        if (bundle != null) {
+            if (bundle.containsKey("city")) {
+                String city = bundle.getString("city");
+                fetchWeatherDataByCity(city);
+            } else if (bundle.containsKey("latitude") && bundle.containsKey("longitude")) {
+                double latitude = bundle.getDouble("latitude");
+                double longitude = bundle.getDouble("longitude");
+                fetchWeatherDataByLocation(latitude, longitude);
             }
-            return false; // Trả về false để không ngăn các sự kiện chạm khác
-        });
-
-        // Tải thời tiết mặc định
-        fetchWeatherDataByCity("Lào Cai");
+        } else {
+            fetchWeatherDataByCity("Lào Cai"); // Fallback to default city
+        }
 
         return view;
     }
 
-    // Phương thức để ẩn bàn phím
-    private void hideKeyboard(View view) {
-        InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (imm != null) {
-            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
-        }
-        // Xóa focus khỏi EditText
-        inputCity.clearFocus();
+    public void setCitySelectedListener(OnCitySelectedListener listener) {
+        this.citySelectedListener = listener;
     }
 
-    public void fetchWeatherDataByLocation(double lat, double lon) {
+    public void fetchWeatherDataByCity(String city) {
         String apiKey = BuildConfig.WEATHER_API_KEY;
 
-        // Gọi API thời tiết hiện tại theo tọa độ
-        Call<WeatherResponse> currentWeatherCall = weatherApi.getCurrentWeatherByLatLon(lat, lon, apiKey, "metric");
-        currentWeatherCall.enqueue(new Callback<WeatherResponse>() {
-            @Override
-            public void onResponse(Call<WeatherResponse> call, Response<WeatherResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    WeatherResponse weather = response.body();
-                    updateCurrentWeatherUI(weather);
-                } else {
-                    Toast.makeText(getContext(), R.string.error_weather_fetch, Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<WeatherResponse> call, Throwable t) {
-                Toast.makeText(getContext(), getString(R.string.error_network, t.getMessage()), Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        // Gọi API dự báo theo giờ theo tọa độ
-        Call<ForecastResponse> forecastCall = weatherApi.getHourlyForecastByLatLon(lat, lon, apiKey, "metric");
-        forecastCall.enqueue(new Callback<ForecastResponse>() {
-            @Override
-            public void onResponse(Call<ForecastResponse> call, Response<ForecastResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    ForecastResponse forecast = response.body();
-                    updateHourlyForecastUI(forecast);
-                } else {
-                    Toast.makeText(getContext(), R.string.error_forecast_fetch, Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ForecastResponse> call, Throwable t) {
-                Toast.makeText(getContext(), getString(R.string.error_network, t.getMessage()), Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    private void fetchWeatherDataByCity(String city) {
-        String apiKey = BuildConfig.WEATHER_API_KEY;
-
-        // Gọi API thời tiết hiện tại theo thành phố
+        // Gọi API thời tiết hiện tại
         Call<WeatherResponse> currentWeatherCall = weatherApi.getCurrentWeather(city, apiKey, "metric");
         currentWeatherCall.enqueue(new Callback<WeatherResponse>() {
             @Override
             public void onResponse(Call<WeatherResponse> call, Response<WeatherResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     WeatherResponse weather = response.body();
+                    Log.d("WeatherApp", "Current weather response: " + response.body().toString());
+                    if (weather.weather != null && !weather.weather.isEmpty()) {
+                        Log.d("WeatherApp", "Icon code: " + weather.weather.get(0).icon);
+                    } else {
+                        Log.e("WeatherApp", "Weather list is null or empty");
+                    }
                     updateCurrentWeatherUI(weather);
                 } else {
+                    Log.e("WeatherApp", "Current weather error: HTTP " + response.code() + ", message: " + response.message());
                     Toast.makeText(getContext(), R.string.error_weather_fetch, Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<WeatherResponse> call, Throwable t) {
+                Log.e("WeatherApp", "Current weather failure: " + t.getMessage());
                 Toast.makeText(getContext(), getString(R.string.error_network, t.getMessage()), Toast.LENGTH_SHORT).show();
             }
         });
 
-        // Gọi API dự báo theo giờ theo thành phố
+        // Gọi API dự báo hàng giờ
         Call<ForecastResponse> forecastCall = weatherApi.getHourlyForecast(city, apiKey, "metric");
         forecastCall.enqueue(new Callback<ForecastResponse>() {
             @Override
             public void onResponse(Call<ForecastResponse> call, Response<ForecastResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     ForecastResponse forecast = response.body();
+                    Log.d("WeatherApp", "Forecast response: " + response.body().toString());
                     updateHourlyForecastUI(forecast);
                 } else {
+                    Log.e("WeatherApp", "Forecast error: HTTP " + response.code() + ", message: " + response.message());
                     Toast.makeText(getContext(), R.string.error_forecast_fetch, Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<ForecastResponse> call, Throwable t) {
+                Log.e("WeatherApp", "Forecast failure: " + t.getMessage());
+                Toast.makeText(getContext(), getString(R.string.error_network, t.getMessage()), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    public void fetchWeatherDataByLocation(double lat, double lon) {
+        String apiKey = BuildConfig.WEATHER_API_KEY;
+
+        // Gọi API thời tiết hiện tại bằng tọa độ
+        Call<WeatherResponse> currentWeatherCall = weatherApi.getCurrentWeatherByLatLon(lat, lon, apiKey, "metric");
+        currentWeatherCall.enqueue(new Callback<WeatherResponse>() {
+            @Override
+            public void onResponse(Call<WeatherResponse> call, Response<WeatherResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    WeatherResponse weather = response.body();
+                    Log.d("WeatherApp", "Current weather response (location): " + response.body().toString());
+                    if (weather.weather != null && !weather.weather.isEmpty()) {
+                        Log.d("WeatherApp", "Icon code: " + weather.weather.get(0).icon);
+                    } else {
+                        Log.e("WeatherApp", "Weather list is null or empty");
+                    }
+                    updateCurrentWeatherUI(weather);
+                } else {
+                    Log.e("WeatherApp", "Current weather error (location): HTTP " + response.code() + ", message: " + response.message());
+                    Toast.makeText(getContext(), R.string.error_weather_fetch, Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<WeatherResponse> call, Throwable t) {
+                Log.e("WeatherApp", "Current weather failure (location): " + t.getMessage());
+                Toast.makeText(getContext(), getString(R.string.error_network, t.getMessage()), Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Gọi API dự báo hàng giờ bằng tọa độ
+        Call<ForecastResponse> forecastCall = weatherApi.getHourlyForecastByLatLon(lat, lon, apiKey, "metric");
+        forecastCall.enqueue(new Callback<ForecastResponse>() {
+            @Override
+            public void onResponse(Call<ForecastResponse> call, Response<ForecastResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    ForecastResponse forecast = response.body();
+                    Log.d("WeatherApp", "Forecast response (location): " + response.body().toString());
+                    updateHourlyForecastUI(forecast);
+                } else {
+                    Log.e("WeatherApp", "Forecast error (location): HTTP " + response.code() + ", message: " + response.message());
+                    Toast.makeText(getContext(), R.string.error_forecast_fetch, Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ForecastResponse> call, Throwable t) {
+                Log.e("WeatherApp", "Forecast failure (location): " + t.getMessage());
                 Toast.makeText(getContext(), getString(R.string.error_network, t.getMessage()), Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     private void updateCurrentWeatherUI(WeatherResponse weather) {
-        if (weather.main != null && weather.weather != null && !weather.weather.isEmpty()) {
-            textCityName.setText(weather.name);
-            textTemperature.setText(String.format(Locale.getDefault(), "%.0f°C", weather.main.temp));
-            String description = weather.weather.get(0).description;
-            textWeatherDescription.setText(weatherTranslations.getOrDefault(description.toLowerCase(), description));
+        textCityName.setText(weather.name);
+        textTemperature.setText(String.format(Locale.getDefault(), "%.0f°C", weather.main.temp));
+        String description = weather.weather.get(0).description;
+        textWeatherDescription.setText(weatherTranslations.getOrDefault(description.toLowerCase(), description));
 
-            String iconCode = weather.weather.get(0).icon;
-            if (iconCode != null && !iconCode.isEmpty()) {
-                String iconUrl = "https://openweathermap.org/img/wn/" + iconCode + "@2x.png";
-                Picasso.get()
-                        .load(iconUrl)
-                        .placeholder(R.drawable.ic_weather_placeholder)
-                        .error(R.drawable.ic_error)
-                        .into(weatherIcon);
-            } else {
-                weatherIcon.setImageDrawable(null);
-            }
+        // Tải biểu tượng thời tiết từ API
+        String iconCode = weather.weather.get(0).icon;
+        if (iconCode != null && !iconCode.isEmpty()) {
+            String iconUrl = "https://openweathermap.org/img/wn/" + iconCode + "@2x.png";
+            Log.d("WeatherApp", "Loading current weather icon: " + iconUrl);
+            Picasso.get()
+                    .load(iconUrl)
+                    .into(weatherIcon, new com.squareup.picasso.Callback() {
+                        @Override
+                        public void onSuccess() {
+                            Log.d("WeatherApp", "Current weather icon loaded successfully: " + iconUrl);
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            Log.e("WeatherApp", "Error loading current weather icon: " + e.getMessage());
+                            weatherIcon.setImageDrawable(null); // Để ImageView trống
+                        }
+                    });
         } else {
-            Toast.makeText(getContext(), R.string.error_weather_fetch, Toast.LENGTH_SHORT).show();
+            Log.e("WeatherApp", "Current weather icon code is null or empty");
+            weatherIcon.setImageDrawable(null); // Để ImageView trống
         }
     }
 
@@ -275,27 +294,35 @@ public class HomeFragment extends Fragment {
 
     // Interface API
     interface OpenWeatherMapApi {
-        @retrofit2.http.GET("weather")
-        Call<WeatherResponse> getCurrentWeather(@retrofit2.http.Query("q") String city, @retrofit2.http.Query("appid") String apiKey, @retrofit2.http.Query("units") String units);
+        @GET("weather")
+        Call<WeatherResponse> getCurrentWeather(@Query("q") String city, @Query("appid") String apiKey, @Query("units") String units);
 
-        @retrofit2.http.GET("forecast")
-        Call<ForecastResponse> getHourlyForecast(@retrofit2.http.Query("q") String city, @retrofit2.http.Query("appid") String apiKey, @retrofit2.http.Query("units") String units);
+        @GET("forecast")
+        Call<ForecastResponse> getHourlyForecast(@Query("q") String city, @Query("appid") String apiKey, @Query("units") String units);
 
-        @retrofit2.http.GET("weather")
-        Call<WeatherResponse> getCurrentWeatherByLatLon(@retrofit2.http.Query("lat") double lat, @retrofit2.http.Query("lon") double lon, @retrofit2.http.Query("appid") String apiKey, @retrofit2.http.Query("units") String units);
+        @GET("weather")
+        Call<WeatherResponse> getCurrentWeatherByLatLon(@Query("lat") double lat, @Query("lon") double lon, @Query("appid") String apiKey, @Query("units") String units);
 
-        @retrofit2.http.GET("forecast")
-        Call<ForecastResponse> getHourlyForecastByLatLon(@retrofit2.http.Query("lat") double lat, @retrofit2.http.Query("lon") double lon, @retrofit2.http.Query("appid") String apiKey, @retrofit2.http.Query("units") String units);
+        @GET("forecast")
+        Call<ForecastResponse> getHourlyForecastByLatLon(@Query("lat") double lat, @Query("lon") double lon, @Query("appid") String apiKey, @Query("units") String units);
     }
 
-    // Class model
+    // Mô hình dữ liệu cho thời tiết hiện tại
     static class WeatherResponse {
         public String name;
         public Main main;
         public List<Weather> weather;
+        public Wind wind;
+
 
         static class Main {
             public float temp;
+            public float humidity;
+            public float pressure;
+            public float feelsLike;
+        }
+        static class Wind {
+            public float speed;
         }
 
         static class Weather {
@@ -304,6 +331,7 @@ public class HomeFragment extends Fragment {
         }
     }
 
+    // Mô hình dữ liệu cho dự báo
     static class ForecastResponse {
         public List<ForecastItem> list;
 
@@ -322,6 +350,7 @@ public class HomeFragment extends Fragment {
         }
     }
 
+    // Mô hình dữ liệu cho dự báo hàng giờ
     static class HourlyForecast {
         public String time;
         public String temperature;
@@ -334,6 +363,7 @@ public class HomeFragment extends Fragment {
         }
     }
 
+    // Adapter cho RecyclerView
     static class HourlyForecastAdapter extends RecyclerView.Adapter<HourlyForecastAdapter.ViewHolder> {
         private List<HourlyForecast> forecastList;
 
@@ -360,13 +390,24 @@ public class HomeFragment extends Fragment {
             holder.textTime.setText(forecast.time);
             holder.textTemperature.setText(forecast.temperature);
             if (forecast.iconUrl != null && !forecast.iconUrl.isEmpty()) {
+                Log.d("WeatherApp", "Loading hourly forecast icon: " + forecast.iconUrl);
                 Picasso.get()
                         .load(forecast.iconUrl)
-                        .placeholder(R.drawable.ic_weather_placeholder)
-                        .error(R.drawable.ic_error)
-                        .into(holder.imageWeatherIcon);
+                        .into(holder.imageWeatherIcon, new com.squareup.picasso.Callback() {
+                            @Override
+                            public void onSuccess() {
+                                Log.d("WeatherApp", "Hourly forecast icon loaded successfully: " + forecast.iconUrl);
+                            }
+
+                            @Override
+                            public void onError(Exception e) {
+                                Log.e("WeatherApp", "Error loading hourly forecast icon: " + e.getMessage());
+                                holder.imageWeatherIcon.setImageDrawable(null); // Để ImageView trống
+                            }
+                        });
             } else {
-                holder.imageWeatherIcon.setImageDrawable(null);
+                Log.e("WeatherApp", "Hourly forecast icon URL is empty");
+                holder.imageWeatherIcon.setImageDrawable(null); // Để ImageView trống
             }
         }
 

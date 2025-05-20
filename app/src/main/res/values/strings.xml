@@ -11,4 +11,5 @@
     <string name="error_forecast_fetch">Failed to fetch forecast data</string>
     <string name="error_network">Network error: %s</string>
 
+
 </resources>
