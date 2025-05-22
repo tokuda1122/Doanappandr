@@ -12,5 +12,12 @@
         <!-- Status bar color. -->
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->
+
     </style>
+
+    <style name="AppSpinner" parent="Widget.AppCompat.Spinner">
+        <item name="android:textColor">@color/white</item> </style>
+
+    <style name="AppSpinnerDropDownItemStyle" parent="Widget.AppCompat.DropDownItem.Spinner">
+        <item name="android:textColor">@color/your_desired_dropdown_item_text_color</item> <item name="android:background">@color/your_desired_dropdown_item_background_color</item> </style>
 </resources>

@@ -1,6 +1,9 @@
 package com.example.doanapp2;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,8 +21,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map; // Import Map nếu bạn định dùng weatherTranslations ở đây
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -31,109 +36,187 @@ public class ForecastFragment extends Fragment {
 
     private RecyclerView fiveDayForecastRecyclerView;
     private FiveDayForecastAdapter forecastAdapter;
-    private OpenWeatherMapApi weatherApi;
+    private HomeFragment.OpenWeatherMapApi weatherApi;
+    private String currentCity;
+    private TextView textCityNameForecast;
+    private Map<String, String> weatherTranslations;
+
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // Khởi tạo weatherTranslations nếu bạn muốn dịch mô tả thời tiết trong fragment này
+        // weatherTranslations = new HashMap<>(); // Tương tự HomeFragment
+    }
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_forecast, container, false);
 
-        // Khởi tạo UI
+        textCityNameForecast = view.findViewById(R.id.textCityNameForecast);
         fiveDayForecastRecyclerView = view.findViewById(R.id.fiveDayForecastRecyclerView);
         fiveDayForecastRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         forecastAdapter = new FiveDayForecastAdapter(new ArrayList<>());
         fiveDayForecastRecyclerView.setAdapter(forecastAdapter);
+        weatherTranslations = new HashMap<>();
+        weatherTranslations.put("clear sky", "Trời quang");
+        weatherTranslations.put("few clouds", "Ít mây");
+        weatherTranslations.put("scattered clouds", "Mây rải rác");
+        weatherTranslations.put("broken clouds", "Mây đứt quãng");
+        weatherTranslations.put("shower rain", "Mưa rào");
+        weatherTranslations.put("rain", "Mưa");
+        weatherTranslations.put("thunderstorm", "Dông");
+        weatherTranslations.put("snow", "Tuyết");
+        weatherTranslations.put("mist", "Sương mù");
+        weatherTranslations.put("overcast clouds", "Mây u ám");
+        weatherTranslations.put("light rain", "Mưa nhẹ");
+        weatherTranslations.put("moderate rain", "Mưa vừa");
+        weatherTranslations.put("heavy intensity rain", "Mưa nhiều");
+        weatherTranslations.put("very heavy rain", "Mưa rất nhiều");
+        weatherTranslations.put("extreme rain", "Mưa cực đại");
+        weatherTranslations.put("freezing rain", "Mưa đá");
+        weatherTranslations.put("light intensity shower rain", "Mưa nhẹ");
+        weatherTranslations.put("moderate intensity shower rain", "Mưa vừa");
+        weatherTranslations.put("heavy intensity shower rain", "Mưa nhiều");
+        weatherTranslations.put("ragged shower rain", "Mưa nhiễu");
+        weatherTranslations.put("thunderstorm with light rain", "Dông nhẹ");
+        weatherTranslations.put("thunderstorm with rain", "Dông vừa");
+        weatherTranslations.put("thunderstorm with heavy rain", "Dông nhiều");
+        weatherTranslations.put("light thunderstorm", "Dông nhẹ");
+        weatherTranslations.put("thunderstorm", "Dông vừa");
+        weatherTranslations.put("heavy thunderstorm", "Dông nhiều");
+        weatherTranslations.put("ragged thunderstorm", "Dông nhiễu");
+        weatherTranslations.put("thunderstorm with light drizzle", "Dông nhẹ");
+        weatherTranslations.put("thunderstorm with drizzle", "Dông vừa");
+        weatherTranslations.put("thunderstorm with heavy drizzle", "Dông nhiều");
+        weatherTranslations.put("light intensity drizzle", "Mưa nhẹ");
+        weatherTranslations.put("drizzle", "Mưa");
+        weatherTranslations.put("heavy intensity drizzle", "Mưa nhiều");
+        weatherTranslations.put("light intensity drizzle rain", "Mưa nhẹ");
+        weatherTranslations.put("drizzle rain", "Mưa vừa");
+        weatherTranslations.put("heavy intensity drizzle rain", "Mưa nhiều");
+        weatherTranslations.put("shower rain and drizzle", "Mưa và mưa rào");
+        weatherTranslations.put("heavy shower rain and drizzle", "Mưa và mưa rào nhiều");
+        weatherTranslations.put("freezing drizzle", "Mưa đá");
+        weatherTranslations.put("light rain and snow", "Mưa nhẹ và tuyết");
+        weatherTranslations.put("rain and snow", "Mưa và tuyết");
 
-        // Khởi tạo Retrofit
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("https://api.openweathermap.org/data/2.5/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
-        weatherApi = retrofit.create(OpenWeatherMapApi.class);
+        weatherApi = retrofit.create(HomeFragment.OpenWeatherMapApi.class);
 
-        // Lấy dữ liệu từ HomeFragment (giả sử thành phố đã được chọn)
+
         Bundle bundle = getArguments();
         if (bundle != null && bundle.containsKey("city")) {
-            String city = bundle.getString("city");
-            fetchFiveDayForecast(city);
+            currentCity = bundle.getString("city");
+            if (currentCity != null && !currentCity.isEmpty()) {
+                fetchFiveDayForecast(currentCity);
+            } else {
+                textCityNameForecast.setText("Chưa chọn thành phố");
+                Toast.makeText(getContext(), "Chưa có thành phố nào được chọn.", Toast.LENGTH_SHORT).show();
+            }
         } else {
-            Toast.makeText(getContext(), "Vui lòng chọn thành phố trước!", Toast.LENGTH_SHORT).show();
+            textCityNameForecast.setText("Chưa chọn thành phố");
+            Toast.makeText(getContext(), "Vui lòng chọn thành phố từ trang chủ!", Toast.LENGTH_SHORT).show();
         }
 
         return view;
     }
 
-    private void fetchFiveDayForecast(String city) {
-        String apiKey = BuildConfig.WEATHER_API_KEY;
+    private String getTemperatureUnitPreference() {
+        if (getContext() == null) return "metric";
+        SharedPreferences sharedPreferences = getContext().getSharedPreferences(SettingsFragment.SHARED_PREFS, Context.MODE_PRIVATE);
+        return sharedPreferences.getString(SettingsFragment.TEMP_UNIT_KEY, "metric");
+    }
 
-        Call<ForecastResponse> call = weatherApi.getFiveDayForecast(city, apiKey, "metric");
-        call.enqueue(new Callback<ForecastResponse>() {
+    private String getTemperatureDisplaySuffix(String unitPreference) {
+        return "imperial".equals(unitPreference) ? "°F" : "°C";
+    }
+
+    private void fetchFiveDayForecast(String city) {
+        if (city == null || city.isEmpty() || weatherApi == null || getContext() == null) {
+            Toast.makeText(getContext(), "Không thể tải dự báo.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (textCityNameForecast != null) { // Kiểm tra null
+            textCityNameForecast.setText("Dự báo cho: " + city);
+        }
+
+
+        String apiKey = BuildConfig.WEATHER_API_KEY;
+        String tempUnitApi = getTemperatureUnitPreference();
+
+        Call<HomeFragment.ForecastResponse> call = weatherApi.getHourlyForecast(city, apiKey, tempUnitApi);
+        call.enqueue(new Callback<HomeFragment.ForecastResponse>() {
             @Override
-            public void onResponse(Call<ForecastResponse> call, Response<ForecastResponse> response) {
+            public void onResponse(Call<HomeFragment.ForecastResponse> call, Response<HomeFragment.ForecastResponse> response) {
+                if (getContext() == null) return;
                 if (response.isSuccessful() && response.body() != null) {
-                    ForecastResponse forecast = response.body();
-                    updateFiveDayForecast(forecast);
+                    HomeFragment.ForecastResponse forecast = response.body();
+                    updateFiveDayForecastUI(forecast);
                 } else {
-                    Toast.makeText(getContext(), "Lỗi khi tải dự báo!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Lỗi khi tải dự báo 5 ngày! Mã: " + response.code(), Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
-            public void onFailure(Call<ForecastResponse> call, Throwable t) {
-                Toast.makeText(getContext(), "Lỗi mạng: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            public void onFailure(Call<HomeFragment.ForecastResponse> call, Throwable t) {
+                if (getContext() == null) return;
+                Toast.makeText(getContext(), "Lỗi mạng (dự báo 5 ngày): " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    private void updateFiveDayForecast(ForecastResponse forecast) {
+    private void updateFiveDayForecastUI(HomeFragment.ForecastResponse forecast) {
+        if (getContext() == null || forecast == null || forecast.list == null) {
+            Log.e("ForecastFragment", "Forecast data incomplete for UI update.");
+            return;
+        }
         List<FiveDayForecastItem> forecastList = new ArrayList<>();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("EEEE, dd/MM", Locale.getDefault());
-        SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+        SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE, dd/MM", Locale.getDefault());
 
-        for (int i = 0; i < Math.min(40, forecast.list.size()); i += 8) { // Lấy 5 ngày (8 mục mỗi 3 giờ)
-            ForecastResponse.ForecastItem item = forecast.list.get(i);
-            String day = dateFormat.format(new Date(item.dt * 1000L));
-            String time = timeFormat.format(new Date(item.dt * 1000L));
-            String temperature = String.format("%.0f°C", item.main.temp);
-            String iconUrl = item.weather.get(0).icon != null && !item.weather.get(0).icon.isEmpty() ?
-                    "https://openweathermap.org/img/wn/" + item.weather.get(0).icon + "@2x.png" : "";
-            String description = item.weather.get(0).description;
-            forecastList.add(new FiveDayForecastItem(day, time, temperature, iconUrl, description)); // Cập nhật với 5 tham số
+        String tempUnitPref = getTemperatureUnitPreference();
+        String tempSuffix = getTemperatureDisplaySuffix(tempUnitPref);
+
+        if (forecast.list.isEmpty()) {
+            Toast.makeText(getContext(), "Không có dữ liệu dự báo.", Toast.LENGTH_SHORT).show();
+            return;
         }
 
+        for (int i = 0; i < forecast.list.size(); i += 8) {
+            if (i < forecast.list.size()) {
+                HomeFragment.ForecastResponse.ForecastItem item = forecast.list.get(i);
+                if(item.main == null || item.weather == null || item.weather.isEmpty()) continue;
+
+                String day = dayFormat.format(new Date(item.dt * 1000L));
+                String temperature = String.format(Locale.getDefault(), "%.0f%s", item.main.temp, tempSuffix);
+                String iconCode = item.weather.get(0).icon;
+                String iconUrl = (!iconCode.isEmpty()) ? "https://openweathermap.org/img/wn/" + iconCode + "@2x.png" : "";
+                String description = item.weather.get(0).description;
+                // Nếu bạn đã khởi tạo weatherTranslations, bạn có thể dịch mô tả ở đây:
+                description = weatherTranslations.getOrDefault(description.toLowerCase(), description);
+                forecastList.add(new FiveDayForecastItem(day, temperature, iconUrl, description));
+            }
+            if (forecastList.size() >= 5) break;
+        }
         forecastAdapter.updateData(forecastList);
     }
 
-    // Interface API
-    interface OpenWeatherMapApi {
-        @retrofit2.http.GET("forecast")
-        Call<ForecastResponse> getFiveDayForecast(
-                @retrofit2.http.Query("q") String city,
-                @retrofit2.http.Query("appid") String apiKey,
-                @retrofit2.http.Query("units") String units);
-    }
-
-    // Class model cho dự báo 5 ngày
-    static class ForecastResponse {
-        public List<ForecastItem> list;
-
-        static class ForecastItem {
-            public long dt;
-            public Main main;
-            public List<Weather> weather;
-
-            static class Main {
-                public float temp;
-            }
-
-            static class Weather {
-                public String icon;
-                public String description;
-            }
+    public void updateCity(String newCity) {
+        currentCity = newCity;
+        if (isAdded() && getView() != null && newCity != null && !newCity.isEmpty()) {
+            fetchFiveDayForecast(newCity);
+        } else if (newCity != null && !newCity.isEmpty()){
+            Bundle args = getArguments();
+            if (args == null) args = new Bundle();
+            args.putString("city", newCity);
+            setArguments(args);
         }
     }
 
-    // Adapter cho RecyclerView
     static class FiveDayForecastAdapter extends RecyclerView.Adapter<FiveDayForecastAdapter.ViewHolder> {
         private List<FiveDayForecastItem> forecastList;
 
@@ -157,11 +240,13 @@ public class ForecastFragment extends Fragment {
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             FiveDayForecastItem item = forecastList.get(position);
-            holder.textDay.setText(item.day + " - " + item.time); // Kết hợp ngày và thời gian
+            holder.textDay.setText(item.day);
             holder.textTemperature.setText(item.temperature);
             holder.textWeatherDescription.setText(item.description);
-            if (!item.iconUrl.isEmpty()) {
-                Picasso.get().load(item.iconUrl).into(holder.imageWeatherIcon);
+            if (item.iconUrl != null && !item.iconUrl.isEmpty()) {
+                Picasso.get().load(item.iconUrl).error(R.drawable.ic_weather_placeholder).into(holder.imageWeatherIcon);
+            } else {
+                holder.imageWeatherIcon.setImageResource(R.drawable.ic_weather_placeholder);
             }
         }
 
@@ -170,6 +255,7 @@ public class ForecastFragment extends Fragment {
             return forecastList.size();
         }
 
+        // ViewHolder đã được sửa để khớp với ID trong five_day_forecast_item.xml của bạn
         static class ViewHolder extends RecyclerView.ViewHolder {
             TextView textDay, textTemperature, textWeatherDescription;
             ImageView imageWeatherIcon;
@@ -177,20 +263,18 @@ public class ForecastFragment extends Fragment {
             ViewHolder(View itemView) {
                 super(itemView);
                 textDay = itemView.findViewById(R.id.textDay);
-                textTemperature = itemView.findViewById(R.id.textTemperature);
-                textWeatherDescription = itemView.findViewById(R.id.textWeatherDescription);
-                imageWeatherIcon = itemView.findViewById(R.id.imageWeatherIcon);
+                imageWeatherIcon = itemView.findViewById(R.id.imageWeatherIcon);       // Khớp với XML
+                textTemperature = itemView.findViewById(R.id.textTemperature);     // Khớp với XML
+                textWeatherDescription = itemView.findViewById(R.id.textWeatherDescription); // Khớp với XML
             }
         }
     }
 
-    // Model cho từng mục dự báo (cập nhật constructor)
     static class FiveDayForecastItem {
-        String day, time, temperature, iconUrl, description;
+        String day, temperature, iconUrl, description;
 
-        FiveDayForecastItem(String day, String time, String temperature, String iconUrl, String description) {
+        FiveDayForecastItem(String day, String temperature, String iconUrl, String description) {
             this.day = day;
-            this.time = time;
             this.temperature = temperature;
             this.iconUrl = iconUrl;
             this.description = description;

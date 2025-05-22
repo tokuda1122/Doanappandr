@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/scrollView"
+    android:id="@+id/scrollViewSettings"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background_color">
@@ -13,7 +13,6 @@
         android:orientation="vertical"
         android:paddingBottom="@dimen/margin_standard">
 
-        <!-- Tiêu đề cài đặt -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -57,7 +56,6 @@
             </androidx.constraintlayout.widget.ConstraintLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- Tùy chọn cài đặt -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -74,12 +72,12 @@
                 android:orientation="vertical"
                 android:padding="@dimen/margin_standard">
 
-                <!-- Đơn vị nhiệt độ -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:paddingVertical="12dp">
+                    android:paddingVertical="12dp"
+                    android:gravity="center_vertical">
 
                     <TextView
                         android:layout_width="0dp"
@@ -93,18 +91,15 @@
                         android:id="@+id/spinnerTemperatureUnit"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:entries="@array/temperature_units"
                         android:background="@null"
-                        android:textColor="@color/white"
-                        android:textSize="16sp" />
-                </LinearLayout>
+                        android:theme="@style/AppSpinner" /> </LinearLayout>
 
-                <!-- Bật thông báo -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:paddingVertical="12dp">
+                    android:paddingVertical="12dp"
+                    android:gravity="center_vertical">
 
                     <TextView
                         android:layout_width="0dp"
@@ -121,12 +116,12 @@
                         android:checked="true" />
                 </LinearLayout>
 
-                <!-- Ngôn ngữ -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:paddingVertical="12dp">
+                    android:paddingVertical="12dp"
+                    android:gravity="center_vertical">
 
                     <TextView
                         android:layout_width="0dp"
@@ -140,11 +135,8 @@
                         android:id="@+id/spinnerLanguage"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:entries="@array/languages"
                         android:background="@null"
-                        android:textColor="@color/white"
-                        android:textSize="16sp" />
-                </LinearLayout>
+                        android:theme="@style/AppSpinner" /> </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
     </LinearLayout>

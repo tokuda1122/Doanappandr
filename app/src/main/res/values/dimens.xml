@@ -1,5 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="margin_standard">16dp</dimen>
+    <dimen name="margin_medium">12dp</dimen>
     <dimen name="margin_small">8dp</dimen>
-</resources>
+    <dimen name="margin_extra_small">4dp</dimen> <dimen name="margin_large">24dp</dimen> <dimen name="padding_standard">16dp</dimen>
+    <dimen name="padding_small">8dp</dimen>
+    <dimen name="padding_large">24dp</dimen>
+
+    <dimen name="text_size_extra_large_title">26sp</dimen> <dimen name="text_size_large_title">24sp</dimen> <dimen name="text_size_title">20sp</dimen> <dimen name="text_size_subtitle">18sp</dimen> <dimen name="text_size_body">16sp</dimen> <dimen name="text_size_caption">14sp</dimen> <dimen name="text_size_small_caption">12sp</dimen> <dimen name="icon_size_large">120dp</dimen> <dimen name="icon_size_medium">48dp</dimen> <dimen name="icon_size_standard">40dp</dimen> <dimen name="icon_size_small">24dp</dimen> <dimen name="card_corner_radius_large">16dp</dimen>
+    <dimen name="card_corner_radius_standard">12dp</dimen>
+    <dimen name="card_corner_radius_small">8dp</dimen>
+    <dimen name="card_elevation_standard">4dp</dimen>
+    <dimen name="card_elevation_large">6dp</dimen>
+
+    <dimen name="search_bar_height">48dp</dimen>
+    <dimen name="search_button_width">100dp</dimen>
+    <dimen name="hourly_item_padding">8dp</dimen>
+    <dimen name="five_day_item_margin_vertical">8dp</dimen>
+
+    <dimen name="settings_item_padding_vertical">12dp</dimen>
+
+    <dimen name="home_temperature_text_size">48sp</dimen>
+
+    <dimen name="fragment_card_margin_top">50dp</dimen> </resources>

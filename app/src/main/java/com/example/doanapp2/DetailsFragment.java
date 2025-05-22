@@ -1,6 +1,9 @@
 package com.example.doanapp2;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,7 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-import com.squareup.picasso.Picasso;
+import java.util.Locale;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -21,74 +24,112 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class DetailsFragment extends Fragment {
 
-    private TextView textHumidity, textWindSpeed, textPressure, textFeelsLike;
-    private OpenWeatherMapApi weatherApi;
+    private TextView textHumidity, textWindSpeed, textPressure, textFeelsLike, textCityNameDetails;
+    private HomeFragment.OpenWeatherMapApi weatherApi; // Sử dụng lại interface từ HomeFragment
+    private String currentCity;
+
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_details, container, false);
 
-        // Khởi tạo UI
+        textCityNameDetails = view.findViewById(R.id.textCityNameDetails);
         textHumidity = view.findViewById(R.id.textHumidity);
         textWindSpeed = view.findViewById(R.id.textWindSpeed);
         textPressure = view.findViewById(R.id.textPressure);
         textFeelsLike = view.findViewById(R.id.textFeelsLike);
 
-        // Khởi tạo Retrofit
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("https://api.openweathermap.org/data/2.5/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
-        weatherApi = retrofit.create(OpenWeatherMapApi.class);
+        weatherApi = retrofit.create(HomeFragment.OpenWeatherMapApi.class);
 
-        // Lấy dữ liệu từ HomeFragment (giả sử thành phố đã được chọn)
+
         Bundle bundle = getArguments();
         if (bundle != null && bundle.containsKey("city")) {
-            String city = bundle.getString("city");
-            fetchWeatherDetails(city);
+            currentCity = bundle.getString("city");
+            if (currentCity != null && !currentCity.isEmpty()) {
+                fetchWeatherDetails(currentCity);
+            } else {
+                textCityNameDetails.setText("Chưa chọn thành phố");
+                Toast.makeText(getContext(), "Chưa có thành phố nào được chọn.", Toast.LENGTH_SHORT).show();
+            }
         } else {
-            Toast.makeText(getContext(), "Vui lòng chọn thành phố trước!", Toast.LENGTH_SHORT).show();
+            textCityNameDetails.setText("Chưa chọn thành phố");
+            Toast.makeText(getContext(), "Vui lòng chọn thành phố từ trang chủ!", Toast.LENGTH_SHORT).show();
         }
 
         return view;
     }
 
-    private void fetchWeatherDetails(String city) {
-        String apiKey = BuildConfig.WEATHER_API_KEY;
+    private String getTemperatureUnitPreference() {
+        if (getContext() == null) return "metric";
+        SharedPreferences sharedPreferences = getContext().getSharedPreferences(SettingsFragment.SHARED_PREFS, Context.MODE_PRIVATE);
+        return sharedPreferences.getString(SettingsFragment.TEMP_UNIT_KEY, "metric");
+    }
 
-        Call<HomeFragment.WeatherResponse> call = weatherApi.getCurrentWeather(city, apiKey, "metric");
+    private String getTemperatureDisplaySuffix(String unitPreference) {
+        return "imperial".equals(unitPreference) ? "°F" : "°C";
+    }
+
+    private void fetchWeatherDetails(String city) {
+        if (city == null || city.isEmpty() || weatherApi == null || getContext() == null) {
+            Toast.makeText(getContext(), "Không thể tải dữ liệu chi tiết.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (textCityNameDetails != null) { // Kiểm tra null
+            textCityNameDetails.setText("Chi tiết cho: " + city);
+        }
+
+
+        String apiKey = BuildConfig.WEATHER_API_KEY;
+        String tempUnitApi = getTemperatureUnitPreference();
+
+        Call<HomeFragment.WeatherResponse> call = weatherApi.getCurrentWeather(city, apiKey, tempUnitApi);
         call.enqueue(new Callback<HomeFragment.WeatherResponse>() {
             @Override
             public void onResponse(Call<HomeFragment.WeatherResponse> call, Response<HomeFragment.WeatherResponse> response) {
+                if (getContext() == null) return; // Kiểm tra context trước khi dùng
                 if (response.isSuccessful() && response.body() != null) {
                     HomeFragment.WeatherResponse weather = response.body();
-                    if (weather.main != null && weather.weather != null && !weather.weather.isEmpty()) {
-                        textHumidity.setText(String.format("%d%%", (int) weather.main.humidity));
-                        textWindSpeed.setText(String.format("%.1f m/s", weather.wind != null ? weather.wind.speed : 0));
-                        textPressure.setText(String.format("%.0f hPa", weather.main.pressure));
-                        textFeelsLike.setText(String.format("%.0f°C", weather.main.feelsLike));
+                    if (weather.main != null && weather.weather != null && !weather.weather.isEmpty() && weather.wind != null) {
+                        textHumidity.setText(String.format(Locale.getDefault(), "%d%%", (int) weather.main.humidity));
+                        textWindSpeed.setText(String.format(Locale.getDefault(), "%.1f m/s", weather.wind.speed));
+                        textPressure.setText(String.format(Locale.getDefault(), "%.0f hPa", weather.main.pressure));
+
+                        String tempSuffix = getTemperatureDisplaySuffix(tempUnitApi);
+                        textFeelsLike.setText(String.format(Locale.getDefault(), "%.0f%s", weather.main.feels_like, tempSuffix));
                     } else {
-                        Toast.makeText(getContext(), "Không thể tải dữ liệu chi tiết!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), "Dữ liệu chi tiết không đầy đủ!", Toast.LENGTH_SHORT).show();
                     }
                 } else {
-                    Toast.makeText(getContext(), "Lỗi khi tải dữ liệu!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Lỗi khi tải dữ liệu chi tiết! Mã: " + response.code() , Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<HomeFragment.WeatherResponse> call, Throwable t) {
-                Toast.makeText(getContext(), "Lỗi mạng: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                if (getContext() == null) return;
+                Toast.makeText(getContext(), "Lỗi mạng (chi tiết): " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    // Interface API (sử dụng lại từ HomeFragment)
-    interface OpenWeatherMapApi {
-        @retrofit2.http.GET("weather")
-        Call<HomeFragment.WeatherResponse> getCurrentWeather(
-                @retrofit2.http.Query("q") String city,
-                @retrofit2.http.Query("appid") String apiKey,
-                @retrofit2.http.Query("units") String units);
+    public void updateCity(String newCity) {
+        currentCity = newCity;
+        // Không cần setArguments lại ở đây nếu Fragment đã được thêm vào Activity
+        // việc gọi fetchWeatherDetails là đủ nếu view đã được tạo.
+
+        if (isAdded() && getView() != null && newCity != null && !newCity.isEmpty()) {
+            fetchWeatherDetails(newCity);
+        } else if (newCity != null && !newCity.isEmpty()){
+            // Nếu view chưa sẵn sàng, lưu lại thành phố để fetch khi onCreateView
+            Bundle args = getArguments();
+            if (args == null) args = new Bundle();
+            args.putString("city", newCity);
+            setArguments(args);
+        }
     }
 }

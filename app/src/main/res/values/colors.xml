@@ -17,6 +17,7 @@
     <color name="black">#FF000000</color>
 
     <color name="background_color">#1A1A2E</color>
+    <color name="your_desired_dropdown_item_text_color">#FF000000</color> <color name="your_desired_dropdown_item_background_color">#FFFFFFFF</color>
 
 
 </resources>
